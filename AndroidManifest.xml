@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:label="turk7filimk"
+        android:label="turk7filimo"
         android:icon="@drawable/ic_launcher"
         android:usesCleartextTraffic="true"
         android:supportsRtl="true"
