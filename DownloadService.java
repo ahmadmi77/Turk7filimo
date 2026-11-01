@@ -91,7 +91,7 @@ public class DownloadService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0,
                 new Intent(this, DownloadsActivity.class),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-        b.setContentTitle("turk7filimk").setContentIntent(pi).setOngoing(ongoing).setOnlyAlertOnce(true);
+        b.setContentTitle("turk7filimo").setContentIntent(pi).setOngoing(ongoing).setOnlyAlertOnce(true);
         return b;
     }
 
