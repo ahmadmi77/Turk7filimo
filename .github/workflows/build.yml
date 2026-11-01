@@ -40,7 +40,7 @@ jobs:
                   mavenCentral()
               }
           }
-          rootProject.name = "turk7filimk"
+          rootProject.name = "turk7filimo"
           EOF
           cat > gradle.properties <<'EOF'
           android.useAndroidX=true
@@ -87,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp build/outputs/apk/debug/*.apk turk7filimk.apk
-          gh release create "v${{ github.run_number }}" turk7filimk.apk \
+          cp build/outputs/apk/debug/*.apk turk7filimo.apk
+          gh release create "v${{ github.run_number }}" turk7filimo.apk \
             --title "turk7filimk ${{ github.run_number }}" \
-            --notes "Download turk7filimk.apk and install it."
+            --notes "Download turk7filimo.apk and install it."
