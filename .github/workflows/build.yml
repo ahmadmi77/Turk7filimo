@@ -89,5 +89,5 @@ jobs:
         run: |
           cp build/outputs/apk/debug/*.apk turk7filimo.apk
           gh release create "v${{ github.run_number }}" turk7filimo.apk \
-            --title "turk7filimk ${{ github.run_number }}" \
+            --title "turk7filimo ${{ github.run_number }}" \
             --notes "Download turk7filimo.apk and install it."
