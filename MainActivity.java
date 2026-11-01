@@ -135,7 +135,7 @@ public class MainActivity extends Activity {
         c.setGravity(Gravity.CENTER_HORIZONTAL);
         splashLogo = Ui.logo(this, 130);
         c.addView(splashLogo);
-        TextView name = Ui.text(this, "turk7filimk", 16, Ui.MUTED, true);
+        TextView name = Ui.text(this, "turk7filimo", 16, Ui.MUTED, true);
         name.setPadding(0, Store.dp(this, 12), 0, 0);
         c.addView(name, new LinearLayout.LayoutParams(WRAP, WRAP));
         splash.addView(c, new FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER));
