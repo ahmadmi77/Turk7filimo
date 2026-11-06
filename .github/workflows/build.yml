@@ -57,13 +57,26 @@ jobs:
                   applicationId 'ir.turk7filimo.k'
                   minSdk 24
                   targetSdk 34
-                  versionCode 2
-                  versionName '2.0'
+                  versionCode 3
+                  versionName '3.0'
               }
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
                   encoding 'UTF-8'
+              }
+              signingConfigs {
+                  fixed {
+                      storeFile file('release.jks')
+                      storePassword 'turk7filimo'
+                      keyAlias 'turk7'
+                      keyPassword 'turk7filimo'
+                  }
+              }
+              buildTypes {
+                  debug {
+                      if (file('release.jks').exists()) signingConfig signingConfigs.fixed
+                  }
               }
           }
           dependencies {
@@ -79,6 +92,12 @@ jobs:
           mv *.java src/main/java/ir/turk7filimo/app/
           mv AndroidManifest.xml src/main/
           mv ic_launcher.png logo.png src/main/res/drawable/
+
+      - name: Prepare fixed signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > release.jks; fi
 
       - name: Build APK
         run: gradle assembleDebug --no-daemon
