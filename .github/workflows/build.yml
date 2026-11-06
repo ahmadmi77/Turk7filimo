@@ -110,3 +110,4 @@ jobs:
           gh release create "v${{ github.run_number }}" turk7filimo.apk \
             --title "turk7filimo ${{ github.run_number }}" \
             --notes "Download turk7filimo.apk and install it."
+
