@@ -17,6 +17,7 @@ import android.view.Window;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 /** تم و ابزارهای ساخت ظاهر. رنگ‌ها را اگر خواستی فقط از همین‌جا عوض کن. */
@@ -163,5 +164,78 @@ final class Ui {
             w.setDimAmount(0.65f);
         }
         return d;
+    }
+    interface Pick {
+        void on(int index);
+    }
+
+    /** پنجره‌ی انتخاب از لیست */
+    static Dialog choose(Activity a, String title, java.util.List<String> labels, int selected, final Pick cb) {
+        LinearLayout card = card(a);
+        TextView t = text(a, title, 18, TEXT, true);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(0, 0, 0, dp(a, 12));
+        card.addView(t, new LinearLayout.LayoutParams(MATCH, WRAP));
+        final Dialog d = sheet(a, card);
+        LinearLayout list = new LinearLayout(a);
+        list.setOrientation(LinearLayout.VERTICAL);
+        for (int i = 0; i < labels.size(); i++) {
+            final int idx = i;
+            TextView row = text(a, (i == selected ? "✓  " : "") + labels.get(i), 16, i == selected ? TEXT : MUTED, i == selected);
+            row.setPadding(dp(a, 18), dp(a, 14), dp(a, 18), dp(a, 14));
+            row.setBackground(i == selected ? grad(a, 18) : shape(a, SURFACE2, 18));
+            row.setClickable(true);
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    d.dismiss();
+                    cb.on(idx);
+                }
+            });
+            list.addView(row, fill(a, 8));
+        }
+        ScrollView sv = new ScrollView(a);
+        sv.addView(list, new FrameLayout.LayoutParams(MATCH, WRAP));
+        int h = Math.min(labels.size() * 62 + 8, 380);
+        card.addView(sv, new LinearLayout.LayoutParams(MATCH, dp(a, h)));
+        d.show();
+        return d;
+    }
+
+    /** پنجره‌ی تأیید کار خطرناک (مثل حذف) */
+    static void confirm(Activity a, String title, String sub, String yes, final Runnable ok) {
+        LinearLayout card = card(a);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextView t = text(a, title, 18, TEXT, true);
+        t.setGravity(Gravity.CENTER);
+        card.addView(t, new LinearLayout.LayoutParams(MATCH, WRAP));
+        TextView s = text(a, sub, 13, MUTED, false);
+        s.setGravity(Gravity.CENTER);
+        s.setPadding(0, dp(a, 6), 0, dp(a, 16));
+        card.addView(s, new LinearLayout.LayoutParams(MATCH, WRAP));
+        final Dialog d = sheet(a, card);
+        card.addView(pill(a, yes, Icons.TRASH, K_DANGER, 52, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                d.dismiss();
+                ok.run();
+            }
+        }), fill(a, 10));
+        card.addView(pill(a, "انصراف", Icons.BACK, K_SECONDARY, 52, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                d.dismiss();
+            }
+        }), fill(a, 4));
+        d.show();
+    }
+
+    /** برچسب کوچک گرد برای نمایش مقدار یک تنظیم */
+    static TextView valuePill(Context c, String s, boolean on) {
+        TextView t = text(c, s, 13, TEXT, true);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(dp(c, 14), dp(c, 7), dp(c, 14), dp(c, 7));
+        t.setBackground(on ? grad(c, 16) : shape(c, 0xFF3A2D6B, 16));
+        return t;
     }
 }

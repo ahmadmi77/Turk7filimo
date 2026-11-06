@@ -51,6 +51,8 @@ public class DownloadsActivity extends Activity {
         long total;
         long speed;
         String url;
+        boolean pub;
+        String uri;
     }
 
     /** نوار پیشرفت گرد با گرادیان بنفش */
@@ -291,7 +293,7 @@ public class DownloadsActivity extends Activity {
             float frac = it.total > 0 ? (float) it.size / it.total : 0f;
             String sz = Formatter.formatFileSize(c, it.size);
             if (!it.part) {
-                status.setText("کامل شد  •  " + sz);
+                status.setText("کامل شد  •  " + sz + (it.pub ? "  •  در گالری" : "  •  خصوصی"));
                 status.setTextColor(Ui.OK);
                 prog.setVisibility(View.GONE);
             } else {
@@ -308,7 +310,7 @@ public class DownloadsActivity extends Activity {
                     status.setTextColor(Ui.MUTED);
                 }
             }
-            String k = it.part ? (it.active ? "A" : "P") : "C";
+            String k = it.part ? (it.active ? "A" : "P") : (it.pub ? "G" : "C");
             if (!k.equals(key)) {
                 key = k;
                 rebuildActions();
@@ -336,6 +338,16 @@ public class DownloadsActivity extends Activity {
                     primary(item);
                 }
             }), new LinearLayout.LayoutParams(0, WRAP, 1f));
+            if (!item.part && Publisher.supported()) {
+                LinearLayout.LayoutParams elp = new LinearLayout.LayoutParams(dp(46), dp(46));
+                elp.setMarginStart(dp(10));
+                actions.addView(Ui.iconBtn(c, item.pub ? Icons.EYE : Icons.EYE_OFF, item.pub ? Ui.P1 : Ui.MUTED, Ui.SURFACE2, 46, new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        togglePublic(item);
+                    }
+                }), elp);
+            }
             LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(dp(46), dp(46));
             dlp.setMarginStart(dp(10));
             actions.addView(Ui.iconBtn(c, Icons.TRASH, Ui.DANGER, Ui.SURFACE2, 46, new View.OnClickListener() {
@@ -390,9 +402,23 @@ public class DownloadsActivity extends Activity {
                 list.add(it);
             }
         }
+        org.json.JSONObject recs = Publisher.records(this);
+        java.util.Iterator<String> ks = recs.keys();
+        while (ks.hasNext()) {
+            String n = ks.next();
+            org.json.JSONObject r = recs.optJSONObject(n);
+            if (r == null) continue;
+            Item it = new Item();
+            it.name = n;
+            it.pub = true;
+            it.uri = r.optString("uri", null);
+            it.size = r.optLong("size", 0);
+            totalBytes += it.size;
+            list.add(it);
+        }
         StringBuilder sig = new StringBuilder();
         for (Item it : list) {
-            sig.append(it.name).append('|').append(it.part).append('|').append(it.active).append('|')
+            sig.append(it.name).append('|').append(it.pub).append('|').append(it.part).append('|').append(it.active).append('|')
                     .append(it.size).append('|').append(it.total).append('|').append(it.speed).append(';');
         }
         items.clear();
@@ -410,15 +436,44 @@ public class DownloadsActivity extends Activity {
 
     private void primary(Item it) {
         if (!it.part) {
+            String src = it.pub ? it.uri : Uri.fromFile(it.f).toString();
+            if (src == null) return;
             startActivity(new Intent(this, PlayerActivity.class)
-                    .putExtra("src", Uri.fromFile(it.f).toString()));
+                    .putExtra("src", src).putExtra("title", Store.titleOf(it.name)));
         } else if (it.active) {
             DownloadService.cancelled.add(it.name);
         } else if (it.url != null) {
-            Store.startDownload(this, it.url, it.name);
+            Store.startDownload(this, it.url, it.name, Store.prefs(this).getBoolean("pub_" + it.name, false));
         } else {
             Toast.makeText(this, "لینک دانلود ذخیره نشده؛ دوباره از سایت بزن", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void togglePublic(final Item it) {
+        Toast.makeText(this, it.pub ? "در حال خصوصی کردن…" : "در حال انتقال به گالری…", Toast.LENGTH_SHORT).show();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final boolean ok;
+                if (it.pub) {
+                    ok = Publisher.makePrivate(DownloadsActivity.this, it.name);
+                } else {
+                    boolean g = Publisher.publish(DownloadsActivity.this, it.f, it.name) != null;
+                    if (g) {
+                        //noinspection ResultOfMethodCallIgnored
+                        it.f.delete();
+                    }
+                    ok = g;
+                }
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        if (!ok) Toast.makeText(DownloadsActivity.this, "انجام نشد", Toast.LENGTH_SHORT).show();
+                        refresh();
+                    }
+                });
+            }
+        }).start();
     }
 
     private void confirmDelete(final Item it) {
@@ -442,6 +497,8 @@ public class DownloadsActivity extends Activity {
                 if (it.active) {
                     DownloadService.toDelete.add(it.name);
                     DownloadService.cancelled.add(it.name);
+                } else if (it.pub) {
+                    Publisher.deletePublic(DownloadsActivity.this, it.name);
                 } else {
                     //noinspection ResultOfMethodCallIgnored
                     it.f.delete();
@@ -498,7 +555,7 @@ public class DownloadsActivity extends Activity {
                     return;
                 }
                 d.dismiss();
-                Store.startDownload(DownloadsActivity.this, u, Store.nameFromUrl(u));
+                Store.startDownload(DownloadsActivity.this, u, Store.nameFromUrl(u), Data.publicDefault(DownloadsActivity.this) && Publisher.supported());
             }
         }), Ui.fill(this, 4));
         if (d.getWindow() != null) {

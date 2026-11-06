@@ -6,6 +6,7 @@ import android.app.Activity;
 import android.app.Dialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.net.Uri;
 import android.content.pm.ActivityInfo;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
@@ -122,6 +123,24 @@ public class MainActivity extends Activity {
         setupWeb();
         web.loadUrl(Store.HOME);
         handler.postDelayed(hideSplashLater, 9000);
+        Store.resumePending(this);
+        handleOpen(getIntent());
+    }
+
+    private void handleOpen(Intent it) {
+        if (it == null) return;
+        String u = it.getStringExtra("open_url");
+        if (u != null && u.startsWith("http")) {
+            it.removeExtra("open_url");
+            web.loadUrl(u);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent it) {
+        super.onNewIntent(it);
+        setIntent(it);
+        handleOpen(it);
     }
 
     // ---------- ظاهر ----------
@@ -188,10 +207,26 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(MainActivity.this, DownloadsActivity.class));
             }
         }), new LinearLayout.LayoutParams(0, WRAP, 1f));
-        nav.addView(tab(Icons.REFRESH, "رفرش", false, false, new View.OnClickListener() {
+        nav.addView(tab(Icons.LIBRARY, "کتابخانه", false, false, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                web.reload();
+                Intent it = new Intent(MainActivity.this, LibraryActivity.class);
+                if (web != null && web.getUrl() != null) {
+                    it.putExtra("page_url", web.getUrl());
+                    it.putExtra("page_title", web.getTitle());
+                }
+                startActivity(it);
+            }
+        }), new LinearLayout.LayoutParams(0, WRAP, 1f));
+        nav.addView(tab(Icons.SETTINGS, "تنظیمات", false, false, new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                SettingsUi.show(MainActivity.this, null, new Runnable() {
+                    @Override
+                    public void run() {
+                        web.reload();
+                    }
+                });
             }
         }), new LinearLayout.LayoutParams(0, WRAP, 1f));
         return nav;
@@ -352,18 +387,35 @@ public class MainActivity extends Activity {
         card.addView(nm, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         final Dialog d = Ui.sheet(this, card);
+        final boolean[] pub = {Data.publicDefault(this) && Publisher.supported()};
+        final TextView dest = Ui.valuePill(this, pub[0] ? "ذخیره در: گالری" : "ذخیره در: خصوصی", pub[0]);
+        dest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!Publisher.supported()) {
+                    Toast.makeText(MainActivity.this, "نمایش در گالری از اندروید ۱۰ به بالا کار می‌کند", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                pub[0] = !pub[0];
+                dest.setText(pub[0] ? "ذخیره در: گالری" : "ذخیره در: خصوصی");
+                dest.setBackground(pub[0] ? Ui.grad(MainActivity.this, 16) : Ui.shape(MainActivity.this, 0xFF3A2D6B, 16));
+            }
+        });
+        LinearLayout.LayoutParams dlp0 = Ui.fill(this, 12);
+        dlp0.gravity = Gravity.CENTER_HORIZONTAL;
+        card.addView(dest, dlp0);
         card.addView(Ui.pill(this, "دانلود", Icons.DOWNLOAD, Ui.K_PRIMARY, 52, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 d.dismiss();
-                Store.startDownload(MainActivity.this, url, name);
+                Store.startDownload(MainActivity.this, url, name, pub[0]);
             }
         }), Ui.fill(this, 10));
         card.addView(Ui.pill(this, "پخش آنلاین", Icons.PLAY, Ui.K_SECONDARY, 52, new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 d.dismiss();
-                startActivity(new Intent(MainActivity.this, PlayerActivity.class).putExtra("src", url));
+                startActivity(new Intent(MainActivity.this, PlayerActivity.class).putExtra("src", url).putExtra("title", Store.titleOf(name)));
             }
         }), Ui.fill(this, 6));
 
@@ -419,6 +471,29 @@ public class MainActivity extends Activity {
         card.addView(title, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         final Dialog d = Ui.sheet(this, card);
+        final boolean pubDef = Data.publicDefault(this) && Publisher.supported();
+        int rec = urls.size() > 1 ? Store.recommend(this, urls) : -1;
+        if (rec >= 0) {
+            final String ru = urls.get(rec);
+            final String rn = Store.nameFromUrl(ru);
+            card.addView(Ui.pill(this, "دانلود با کیفیت پیشنهادی (" + Store.qualityOf(ru) + "p)", Icons.HD, Ui.K_PRIMARY, 50, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    d.dismiss();
+                    Store.startDownload(MainActivity.this, ru, rn, pubDef);
+                }
+            }), Ui.fill(this, 12));
+        }
+        final String pt = web.getTitle(), pu = web.getUrl();
+        if (pu != null && !Data.inWatch(this, pu)) {
+            card.addView(Ui.pill(this, "افزودن این صفحه به «بعداً می‌بینم»", Icons.BOOKMARK, Ui.K_SECONDARY, 46, new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Data.addWatch(MainActivity.this, pt == null ? "فیلم" : pt, pu);
+                    Toast.makeText(MainActivity.this, "به لیست تماشای بعدی اضافه شد", Toast.LENGTH_SHORT).show();
+                }
+            }), Ui.fill(this, 12));
+        }
         LinearLayout list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
 
@@ -429,7 +504,8 @@ public class MainActivity extends Activity {
             row.setBackground(Ui.shape(this, Ui.SURFACE2, 18));
             row.setPadding(Store.dp(this, 12), Store.dp(this, 12), Store.dp(this, 12), Store.dp(this, 12));
 
-            TextView n = Ui.text(this, nm, 13, Ui.TEXT, false);
+            int q = Store.qualityOf(u);
+            TextView n = Ui.text(this, (q > 0 ? "[" + q + "p]  " : "") + nm, 13, Ui.TEXT, false);
             n.setMaxLines(2);
             n.setEllipsize(TextUtils.TruncateAt.MIDDLE);
             n.setPadding(0, 0, 0, Store.dp(this, 10));
@@ -441,14 +517,14 @@ public class MainActivity extends Activity {
                 @Override
                 public void onClick(View v) {
                     d.dismiss();
-                    Store.startDownload(MainActivity.this, u, nm);
+                    Store.startDownload(MainActivity.this, u, nm, pubDef);
                 }
             });
             View pl = Ui.pill(this, "پخش", Icons.PLAY, Ui.K_SECONDARY, 44, new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
                     d.dismiss();
-                    startActivity(new Intent(MainActivity.this, PlayerActivity.class).putExtra("src", u));
+                    startActivity(new Intent(MainActivity.this, PlayerActivity.class).putExtra("src", u).putExtra("title", Store.titleOf(nm)));
                 }
             });
             LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(0, WRAP, 1f);
@@ -483,6 +559,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         web.onResume();
+        Night.apply(this);
         handler.post(badgeTick);
     }
 
